@@ -360,6 +360,16 @@ export default function Home() {
     setSavedOnly(false);
   };
 
+  const showContent = (type: ContentKind) => {
+    setSelectedType(type);
+    setSelectedCategory("전체");
+    setQuery("");
+    setSavedOnly(false);
+    window.requestAnimationFrame(() => {
+      document.querySelector("#radar")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
   return (
     <main>
       <header className="site-header">
@@ -368,9 +378,30 @@ export default function Home() {
           <span>노동노트</span>
         </a>
         <nav aria-label="주요 메뉴">
-          <a href="#radar">최신 이슈</a>
-          <a href="#radar">중요 판례</a>
-          <a href="#radar">5분 스터디</a>
+          <button
+            type="button"
+            className={selectedType === "이슈" ? "active" : ""}
+            aria-current={selectedType === "이슈" ? "page" : undefined}
+            onClick={() => showContent("이슈")}
+          >
+            최신 이슈
+          </button>
+          <button
+            type="button"
+            className={selectedType === "판례" ? "active" : ""}
+            aria-current={selectedType === "판례" ? "page" : undefined}
+            onClick={() => showContent("판례")}
+          >
+            중요 판례
+          </button>
+          <button
+            type="button"
+            className={selectedType === "스터디" ? "active" : ""}
+            aria-current={selectedType === "스터디" ? "page" : undefined}
+            onClick={() => showContent("스터디")}
+          >
+            5분 스터디
+          </button>
         </nav>
         <button
           className={`saved-nav ${savedOnly ? "active" : ""}`}
