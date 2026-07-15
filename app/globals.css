@@ -1,3 +1,4 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css");
 @import "tailwindcss";
 
 :root {
@@ -20,7 +21,7 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font-family: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
+  font-family: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
 }
 
 button, input { font: inherit; }
@@ -133,7 +134,9 @@ a { color: inherit; text-decoration: none; }
 .save-button.is-saved { color: var(--accent); }
 .article-date { margin: 32px 0 10px; color: var(--sage); font-family: serif; font-size: 12px; letter-spacing: .08em; }
 .article-card h3 { margin: 0; font-family: "Noto Serif KR", "Batang", serif; font-size: clamp(24px, 2.2vw, 32px); line-height: 1.4; letter-spacing: -.045em; word-break: keep-all; }
-.article-summary { margin: 18px 0 24px; color: var(--ink-soft); font-size: 14px; line-height: 1.85; word-break: keep-all; }
+.article-summary { margin: 22px 0 28px; color: var(--ink-soft); font-size: 14px; line-height: 1.82; word-break: keep-all; letter-spacing: -.012em; }
+.article-summary p { margin: 0; }
+.article-summary p + p { margin-top: 16px; }
 .memory-line { margin-top: auto; padding: 16px 18px; border-left: 3px solid var(--accent); background: var(--paper-deep); }
 .memory-line span { color: var(--accent); font-size: 10px; font-weight: 850; letter-spacing: .08em; }
 .memory-line p { margin: 5px 0 0; font-family: "Noto Serif KR", serif; font-size: 14px; font-weight: 700; line-height: 1.55; }
