@@ -16,5 +16,5 @@ test("ships generated official-source content in the client bundle", async () =>
   const bundle = await readFile(`pages-dist/assets/${script}`, "utf8");
   assert.match(bundle, /고용노동부/);
   assert.match(bundle, /한 줄 기억/);
-  await access("pages-dist/favicon.svg");
+  await access("pages-dist/og.png");
 });
