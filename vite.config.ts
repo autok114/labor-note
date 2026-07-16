@@ -44,6 +44,9 @@ export default defineConfig(async () => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
+    // GitHub Pages ships public assets separately. Sites serves this app from
+    // its worker bundle, so keep static files out of the server module graph.
+    publicDir: false,
     server: isCodexSeatbeltSandbox
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,
