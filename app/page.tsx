@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import generatedData from "../data/generated-articles.json";
 
 type ContentKind = "이슈" | "판례" | "스터디";
 
@@ -18,7 +19,7 @@ type Article = {
   reference: string;
 };
 
-const articles: Article[] = [
+const manualArticles: Article[] = [
   {
     id: 101,
     kind: "이슈",
@@ -246,6 +247,28 @@ const articles: Article[] = [
   },
 ];
 
+const articles: Article[] = [
+  ...(generatedData.articles as Article[]),
+  ...manualArticles,
+].filter(
+  (article, index, all) =>
+    all.findIndex(
+      (candidate) =>
+        candidate.source === article.source || candidate.title === article.title,
+    ) === index,
+);
+
+const latestCheck = generatedData.generatedAt
+  ? new Intl.DateTimeFormat("ko-KR", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(generatedData.generatedAt))
+  : "2026. 7. 16.";
+
+const latestIssue = articles.find((article) => article.kind === "이슈") ?? manualArticles[0];
+
 const categories = [
   "전체",
   "근로계약",
@@ -432,16 +455,13 @@ export default function Home() {
         <aside className="hero-brief" aria-label="오늘의 핵심 브리핑">
           <div className="brief-label">
             <span>최신 브리핑</span>
-            <time dateTime="2026-07-16">7월 16일</time>
+            <time>{latestIssue.date}</time>
           </div>
           <p className="brief-number">01</p>
-          <span className="brief-category">임금 · 최저임금</span>
-          <h2>2027년 최저임금안, 시간급 10,700원</h2>
-          <p>
-            위원회 의결을 마친 ‘최저임금안’ 단계입니다. 급여 기준을 확정하기
-            전 고용노동부의 최종 고시를 다시 확인해야 합니다.
-          </p>
-          <a href="https://www.minimumwage.go.kr/index.jsp" target="_blank" rel="noreferrer">
+          <span className="brief-category">{latestIssue.category} · {latestIssue.sourceLabel}</span>
+          <h2>{latestIssue.title}</h2>
+          <p>{latestIssue.summary[0]}</p>
+          <a href={latestIssue.source} target="_blank" rel="noreferrer">
             공식 발표 확인 <span aria-hidden="true">↗</span>
           </a>
         </aside>
@@ -450,7 +470,7 @@ export default function Home() {
       <section className="quick-strip" aria-label="서비스 특징">
         <div><strong>공식 출처 우선</strong><span>법령 · 법원 · 정부 자료</span></div>
         <div><strong>실무 영향 해설</strong><span>업무에서 확인할 체크포인트</span></div>
-        <div><strong>2026.07.16 확인</strong><span>최신 이슈와 판례 반영</span></div>
+        <div><strong>{latestCheck} 확인</strong><span>최신 이슈와 판례 반영</span></div>
       </section>
 
       <section className="radar-section" id="radar">
@@ -460,7 +480,7 @@ export default function Home() {
             <h2>읽어둘 노동 이슈</h2>
           </div>
           <p>
-            2026년 7월 16일 기준 공식 자료를 확인해 정리했습니다. 실제 업무에
+            {latestCheck} 기준 공식 자료를 확인해 정리했습니다. 실제 업무에
             적용하기 전 연결된 원문과 최신 법령을 다시 확인하세요.
           </p>
         </div>
@@ -545,7 +565,7 @@ export default function Home() {
 
       <footer>
         <div className="brand footer-brand"><span className="brand-mark">노</span><span>노동노트</span></div>
-        <p>공식 자료에서 시작하는 실무형 노동법 브리핑 · 최근 확인 2026.07.16</p>
+        <p>공식 자료에서 시작하는 실무형 노동법 브리핑 · 최근 확인 {latestCheck}</p>
         <p className="disclaimer">본 사이트의 콘텐츠는 학습용이며 법률 자문을 대신하지 않습니다.</p>
       </footer>
     </main>
