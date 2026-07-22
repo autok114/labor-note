@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 const outputPath = resolve("data/generated-articles.json");
+const studyLibraryPath = resolve("data/study-library.json");
 const userAgent = "LaborNoteBot/1.0 (+https://github.com/autok114/labor-note)";
 
 const laborKeywords = [
@@ -199,27 +200,122 @@ async function collectSupremeCourt() {
   return [...new Map(articles.map((article) => [article.id, article])).values()].slice(0, 8);
 }
 
+function koreaDate(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
+function publishStudy(template, publishedDate, sequence) {
+  const compactDate = Number(publishedDate.replaceAll("-", ""));
+  return {
+    id: 40_000_000 + compactDate * 10 + sequence,
+    kind: "스터디",
+    category: template.category,
+    impact: template.impact,
+    date: `${publishedDate.replaceAll("-", ".")} · 5분 읽기`,
+    title: template.title,
+    summary: template.summary,
+    memory: template.memory,
+    source: template.source,
+    sourceLabel: template.sourceLabel,
+    reference: template.reference,
+  };
+}
+
+async function collectDailyStudies(previous) {
+  const library = JSON.parse(await readFile(studyLibraryPath, "utf8"));
+  const today = koreaDate();
+  const previousState = previous.studyState ?? {};
+  const existingCount = Array.isArray(previous.articles)
+    ? previous.articles.filter((article) => article.kind === "스터디").length
+    : 0;
+
+  if (existingCount === 0) {
+    const seedCount = Math.min(7, library.length);
+    return {
+      articles: library
+        .slice(0, seedCount)
+        .map((template, index) => publishStudy(template, today, index)),
+      state: { lastAddedDate: today, nextIndex: seedCount % library.length },
+    };
+  }
+
+  if (existingCount < 7) {
+    const existingTitles = new Set(
+      previous.articles
+        .filter((article) => article.kind === "스터디")
+        .map((article) => article.title),
+    );
+    const missing = library
+      .filter((template) => !existingTitles.has(template.title))
+      .slice(0, 7 - existingCount);
+    return {
+      articles: missing.map((template, index) => publishStudy(template, today, index)),
+      state: { lastAddedDate: today, nextIndex: 7 % library.length },
+    };
+  }
+
+  if (previousState.lastAddedDate === today) {
+    return { articles: [], state: previousState };
+  }
+
+  const nextIndex = Number.isInteger(previousState.nextIndex)
+    ? previousState.nextIndex % library.length
+    : existingCount % library.length;
+  return {
+    articles: [publishStudy(library[nextIndex], today, 0)],
+    state: {
+      lastAddedDate: today,
+      nextIndex: (nextIndex + 1) % library.length,
+    },
+  };
+}
+
 async function main() {
   const previous = JSON.parse(await readFile(outputPath, "utf8"));
+  const dailyStudies = await collectDailyStudies(previous);
   const results = await Promise.allSettled([collectMoel(), collectSupremeCourt()]);
   const fresh = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
   for (const result of results) {
     if (result.status === "rejected") console.warn(result.reason);
   }
-  if (fresh.length === 0) {
+  if (fresh.length === 0 && dailyStudies.articles.length === 0) {
     console.warn("No fresh official content found; keeping the previous data file.");
     process.exitCode = 0;
     return;
   }
   const previousArticles = Array.isArray(previous.articles) ? previous.articles : [];
-  const merged = [...fresh, ...previousArticles]
-    .filter((article) => isLaborRelated(article.title))
-    .filter((article, index, all) => all.findIndex((candidate) => candidate.source === article.source) === index)
+  const merged = [...fresh, ...dailyStudies.articles, ...previousArticles]
+    .filter((article) => article.kind === "스터디" || isLaborRelated(article.title))
+    .filter(
+      (article, index, all) =>
+        all.findIndex((candidate) =>
+          article.kind === "스터디"
+            ? candidate.kind === "스터디" && candidate.title === article.title
+            : candidate.kind !== "스터디" && candidate.source === article.source,
+        ) === index,
+    )
     .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 40);
+    .slice(0, 80);
   await mkdir(dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, `${JSON.stringify({ generatedAt: new Date().toISOString(), articles: merged }, null, 2)}\n`, "utf8");
-  console.log(`Updated ${merged.length} articles (${fresh.length} refreshed from official sources).`);
+  await writeFile(
+    outputPath,
+    `${JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      studyState: dailyStudies.state,
+      articles: merged,
+    }, null, 2)}\n`,
+    "utf8",
+  );
+  console.log(
+    `Updated ${merged.length} articles (${fresh.length} official updates, ${dailyStudies.articles.length} new studies).`,
+  );
 }
 
 await main();

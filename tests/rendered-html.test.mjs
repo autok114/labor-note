@@ -18,3 +18,15 @@ test("ships generated official-source content in the client bundle", async () =>
   assert.match(bundle, /한 줄 기억/);
   await access("pages-dist/og.png");
 });
+
+test("keeps substantial five-minute studies with official sources", async () => {
+  const data = JSON.parse(await readFile("data/generated-articles.json", "utf8"));
+  const studies = data.articles.filter((article) => article.kind === "스터디");
+  assert.ok(studies.length >= 7, "the initial study collection should contain at least seven entries");
+  for (const study of studies) {
+    assert.ok(study.summary.length >= 3, `${study.title} should have a substantial summary`);
+    assert.ok(study.summary.every((paragraph) => paragraph.length >= 80));
+    assert.ok(study.memory.length >= 20);
+    assert.match(study.source, /^https:\/\//);
+  }
+});
