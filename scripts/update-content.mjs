@@ -228,12 +228,37 @@ function publishStudy(template, publishedDate, sequence) {
   };
 }
 
-async function collectDailyStudies(previous) {
+function publishOfficialStudy(article, publishedDate, sequence) {
+  const compactDate = Number(publishedDate.replaceAll("-", ""));
+  const learningGuide = practicalGuides[article.category] ?? practicalGuides["근로계약"];
+  return {
+    id: 40_000_000 + compactDate * 10 + sequence,
+    kind: "스터디",
+    category: article.category,
+    impact: article.impact === "높음" ? "중간" : article.impact,
+    date: `${publishedDate.replaceAll("-", ".")} · 5분 읽기`,
+    title: `${article.category} 실무로 읽기: ${article.title}`,
+    summary: [
+      article.summary[0],
+      article.summary[1] ?? "공식 원문에서 적용 대상과 시행 시점, 예외와 후속 절차를 함께 확인해야 합니다.",
+      `이 자료를 5분 스터디로 읽을 때는 발표 제목만 기억하지 말고 적용 대상·시행 시점·예외를 원문에서 나누어 확인해야 합니다. ${learningGuide}`,
+    ],
+    memory: article.memory,
+    source: article.source,
+    sourceLabel: article.sourceLabel,
+    reference: `5분 스터디 · ${article.reference}`,
+    studySource: article.source,
+  };
+}
+
+async function collectDailyStudies(previous, officialArticles) {
   const library = JSON.parse(await readFile(studyLibraryPath, "utf8"));
   const today = koreaDate();
   const previousState = previous.studyState ?? {};
+  const previousArticles = Array.isArray(previous.articles) ? previous.articles : [];
+  const existingStudies = previousArticles.filter((article) => article.kind === "스터디");
   const existingCount = Array.isArray(previous.articles)
-    ? previous.articles.filter((article) => article.kind === "스터디").length
+    ? existingStudies.length
     : 0;
 
   if (existingCount === 0) {
@@ -242,7 +267,7 @@ async function collectDailyStudies(previous) {
       articles: library
         .slice(0, seedCount)
         .map((template, index) => publishStudy(template, today, index)),
-      state: { lastAddedDate: today, nextIndex: seedCount % library.length },
+      state: { lastAddedDate: today, nextIndex: seedCount },
     };
   }
 
@@ -257,7 +282,7 @@ async function collectDailyStudies(previous) {
       .slice(0, 7 - existingCount);
     return {
       articles: missing.map((template, index) => publishStudy(template, today, index)),
-      state: { lastAddedDate: today, nextIndex: 7 % library.length },
+      state: { lastAddedDate: today, nextIndex: 7 },
     };
   }
 
@@ -265,23 +290,44 @@ async function collectDailyStudies(previous) {
     return { articles: [], state: previousState };
   }
 
+  const dailyCount = 5;
   const nextIndex = Number.isInteger(previousState.nextIndex)
-    ? previousState.nextIndex % library.length
-    : existingCount % library.length;
+    ? previousState.nextIndex
+    : Math.min(existingCount, library.length);
+  const templates = library.slice(nextIndex, nextIndex + dailyCount);
+  const templateStudies = templates.map((template, index) =>
+    publishStudy(template, today, index),
+  );
+
+  const usedSources = new Set(
+    existingStudies.map((study) => study.studySource ?? study.source),
+  );
+  const candidates = [...officialArticles, ...previousArticles]
+    .filter((article) => article.kind !== "스터디" && !usedSources.has(article.source))
+    .filter(
+      (article, index, all) =>
+        all.findIndex((candidate) => candidate.source === article.source) === index,
+    );
+  const officialStudies = candidates
+    .slice(0, dailyCount - templateStudies.length)
+    .map((article, index) =>
+      publishOfficialStudy(article, today, templateStudies.length + index),
+    );
+
   return {
-    articles: [publishStudy(library[nextIndex], today, 0)],
+    articles: [...templateStudies, ...officialStudies],
     state: {
       lastAddedDate: today,
-      nextIndex: (nextIndex + 1) % library.length,
+      nextIndex: nextIndex + templates.length,
     },
   };
 }
 
 async function main() {
   const previous = JSON.parse(await readFile(outputPath, "utf8"));
-  const dailyStudies = await collectDailyStudies(previous);
   const results = await Promise.allSettled([collectMoel(), collectSupremeCourt()]);
   const fresh = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+  const dailyStudies = await collectDailyStudies(previous, fresh);
   for (const result of results) {
     if (result.status === "rejected") console.warn(result.reason);
   }
@@ -302,7 +348,7 @@ async function main() {
         ) === index,
     )
     .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 80);
+    .slice(0, 120);
   await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(
     outputPath,
